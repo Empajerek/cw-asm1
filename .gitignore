@@ -1,5 +1,6 @@
 fake_mdiv_example
 fake_mdiv.o
+fake_mdiv.asm
 mdiv_example
 mdiv_example.o
 mdiv.o
