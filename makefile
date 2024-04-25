@@ -27,8 +27,8 @@ test_fake:
 	./fake_mdiv_example
 
 show_assembly:
-	gcc -S -O3 -masm=intel fake_mdiv.c -o fake_mdiv.asm
-	sed -i 's/QWORD PTR/qword/g' fake_mdiv.asm
+	gcc -S -O3 -masm=intel fake_mdiv.c -o fake_assembly.asm
+	sed -i 's/QWORD PTR/qword/g' fake_assembly.asm
 
 clean:
-	rm -rf *.o mdiv_example fake_mdiv fake_mdiv_example fake_mdiv.asm
+	rm -rf *.o mdiv_example fake_mdiv fake_mdiv_example fake_assembly.asm
