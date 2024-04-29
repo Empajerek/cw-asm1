@@ -2,26 +2,24 @@ global mdiv
 mdiv:
 	push	rbp
 	push	rbx
-	sub	rsi, 1
-	mov	r9, rdi
-	mov	rdi, rdx
+	sub	rsi, 1					; rsi = n-1
+	mov	r9, rdi					; r9 = &x[0]
+	mov	rdi, rdx				; rdi = y
 	lea	r8, [rsi*8]
-	lea	r11, [r9+r8]
-	sub	rsp, 8
-	mov	rcx, qword [r11]
+	lea	r11, [r9+r8]			; r11 = &x[n--]
+	mov	rcx, qword [r11]		; rcx = x[n]
 	mov	r10, rcx
-	xor	r10, rdx
+	xor	r10, rdx				; r10 := sign of division
 	shr	r10, 63
-	cmp	rdx, -1
-	jne	.L16
+	cmp	rdx, -1					; if y != -1 => jmp .normal_division
+	jne	.normal_divison
 	mov	rax, 0x8000000000000000
-	cmp	rcx, rax
-	jne	.L16
-.L14:
-	mov	rax, 0x7fffffffffffffff
-	mov	rbx, -1
-	jmp	.L2
-.L16:
+	cmp	rcx, rax				; if x[n] != INT64_MIN => jmp .normal_division
+	jne	.normal_divison
+	mov	rbx, -1					; rbx(remainder) = (-1)
+	mov	rax, 0x7fffffffffffffff ; rax = INT64_MAX
+	jmp	.load_values
+.normal_divison:
 	mov	rax, rcx
 	cqo
 	idiv	rdi
@@ -30,24 +28,24 @@ mdiv:
 	idiv	rdi
 	mov	rax, rcx
 	sub	rax, rdx
-	mov	rbx, rdx
+	mov	rbx, rdx				; rbx(remainder) = (x[n] % y + y) % y
 	cqo
-	idiv	rdi
-.L2:
-	mov	qword [r11], rax
-	lea	rbp, -8[r9+r8]
+	idiv	rdi					; rax = (x[n] - buf) / y (result in first 64 bits)
+.load_values:
+	mov	qword [r11], rax		; x[n] = rax
+	lea	rbp,  [r9+r8-8]			; rbp = &x[n-1]
 	mov	r8d, 1
-	test	rsi, rsi
-	je	.L9
-.L8:
-	mov	rdx, qword 0[rbp]
-	mov	ecx, 63
-	jmp	.L7
-.L17:
+	test	rsi, rsi			; if n == 0 => jmp .after_loop
+	je	.after_loop
+.start_loop:
+	mov	rdx, qword [rbp]		; rdx = x[n-1]
+	mov	ecx, 63					; ecx = 63
+	jmp	.inner_loop
+.set_one:
 	or	rdx, rsi
 	sub	ecx, 1
-	jb	.L30
-.L7:
+	jb	.set_bits
+.inner_loop:
 	mov	rax, rdx
 	mov	rsi, r8
 	shr	rax, cl
@@ -58,39 +56,38 @@ mdiv:
 	sub	rbx, rdi
 	mov	r11, rbx
 	xor	r11, rax
-	jns	.L17
+	jns	.set_one
 	cmp	rdi, rax
-	je	.L17
+	je	.set_one
 	not	rsi
 	mov	rbx, rax
-	and	rdx, rsi
+	and	rdx, rsi				; set_zero
 	sub	ecx, 1
-	jnb	.L7
-.L30:
-	mov	qword [rbp], rdx
+	jnb	.inner_loop
+.set_bits:
+	mov	qword [rbp], rdx		; set x[n]
 	lea	rax, [rbp-8]
 	cmp	r9, rbp
-	je	.L9
+	je	.after_loop
 	mov	rbp, rax
-	jmp	.L8
-.L9:
+	jmp	.start_loop
+.after_loop:
 	test	rbx, rbx
-	je	.L11
+	je	.end
 	test	r10b, r10b
-	je	.L11
+	je	.end
 	sub	rbx, rdi
-.L12:
+.add_one:
 	mov	rax, qword [r9]
 	add	r9, 8
 	add	rax, 1
 	mov	qword [r9-8], rax
 	test	rax, rax
-	je	.L12
-.L11:
+	je	.add_one
+.end:
 	xor rdx, rdx
 	sub rdi, rbx
 	idiv rdi
-	add	rsp, 8
 	mov	rax, rbx
 	pop	rbx
 	pop	rbp
