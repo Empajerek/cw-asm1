@@ -1,6 +1,6 @@
 global mdiv
 mdiv:
-	push	rbp
+	push	rbp					; push the stack
 	push	rbx
 	sub	rsi, 1					; rsi = n-1
 	mov	r9, rdi					; r9 = &x[0]
@@ -9,12 +9,12 @@ mdiv:
 	lea	r11, [r9+r8]			; r11 = &x[n--]
 	mov	rcx, qword [r11]		; rcx = x[n]
 	mov	r10, rcx
-	xor	r10, rdx				; r10 := sign of division
+	xor	r10, rdx				; r10 = sign of division
 	shr	r10, 63
-	cmp	rdx, -1					; if y != -1 => jmp .normal_division
+	cmp	rdx, -1					; if y != -1
 	jne	.normal_divison
 	mov	rax, 0x8000000000000000
-	cmp	rcx, rax				; if x[n] != INT64_MIN => jmp .normal_division
+	cmp	rcx, rax				; if x[n] != INT64_MIN
 	jne	.normal_divison
 	mov	rbx, -1					; rbx(remainder) = (-1)
 	mov	rax, 0x7fffffffffffffff ; rax = INT64_MAX
@@ -42,7 +42,7 @@ mdiv:
 	mov	ecx, 63					; ecx = 63
 	jmp	.inner_loop
 .set_one:
-	or	rdx, rsi
+	or	rdx, rsi				; x[n] |= 1 << ecx
 	sub	ecx, 1
 	jb	.set_bits
 .inner_loop:
@@ -52,43 +52,43 @@ mdiv:
 	sal	rsi, cl
 	and	eax, 1
 	lea	rax, [rax+rbx*2]
-	mov	rbx, rax
-	sub	rbx, rdi
+	mov	rbx, rax				; remainder = (remainder << 1) + ((x[n] >> ecx) & 1)
+	sub	rbx, rdi				; remainder -= y
 	mov	r11, rbx
-	xor	r11, rax
+	xor	r11, rax				; if remainder - y  doesn't change sign
 	jns	.set_one
-	cmp	rdi, rax
+	cmp	rdi, rax				; if remainder == y
 	je	.set_one
 	not	rsi
-	mov	rbx, rax
-	and	rdx, rsi				; set_zero
+	mov	rbx, rax				; remainder += y
+	and	rdx, rsi				; x[n] &= ~(1 << ecx)
 	sub	ecx, 1
 	jnb	.inner_loop
 .set_bits:
 	mov	qword [rbp], rdx		; set x[n]
-	lea	rax, [rbp-8]
-	cmp	r9, rbp
+	lea	rax, [rbp-8]			; rax = &x[n-1]
+	cmp	r9, rbp					; if &x[n-1] == &x[0]
 	je	.after_loop
-	mov	rbp, rax
+	mov	rbp, rax				; n--
 	jmp	.start_loop
 .after_loop:
-	test	rbx, rbx
+	test	rbx, rbx			; if buf == 0
 	je	.end
-	test	r10b, r10b
+	test	r10b, r10b			; if sign < 0
 	je	.end
-	sub	rbx, rdi
+	sub	rbx, rdi				; change sign of remainder
 .add_one:
 	mov	rax, qword [r9]
 	add	r9, 8
 	add	rax, 1
 	mov	qword [r9-8], rax
 	test	rax, rax
-	je	.add_one
+	je	.add_one				; adding one until we don't overflow
 .end:
 	xor rdx, rdx
 	sub rdi, rbx
-	idiv rdi
+	idiv rdi					; dividing by buf - y, so we triger SIGFPE when we divide min number by -1
 	mov	rax, rbx
-	pop	rbx
+	pop	rbx						; pop the stack
 	pop	rbp
 	ret
